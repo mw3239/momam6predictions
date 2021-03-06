@@ -408,37 +408,13 @@ genres <- get_genres(client_id,access_token)
 platforms <- get_platforms(client_id,access_token)
 themes <- get_themes(client_id,access_token)
 
+#Hard coding these since it's short enough and that's how it's written on the
+#igdb API docs https://api-docs.igdb.com/#age-rating
 ratings <- tibble(name=c("Three","Seven","Twelve","Sixten","Eighteen",
                          "RP","EC","E","E10","T","M","AO"),
                   value=c(1,2,3,4,5,6,7,8,9,10,11,12))
 
-#Cool I can get the needed data. Now what about the games?
 
-userid_pie <- GET("https://api.twitch.tv/helix/users",
-                  add_headers(`Client-ID`=client_id,
-                              Authorization=str_c("Bearer ",access_token)),
-                  query=list(login="iateyourpie")) %>%
-  use_series("content") %>%
-  rawToChar() %>%
-  fromJSON() %>%
-  as_tibble() %>%
-  use_series("data") %>%
-  use_series("id") %>%
-  unlist()
-
-userid_spike <- GET("https://api.twitch.tv/helix/users",
-                    add_headers(`Client-ID`=client_id,
-                                Authorization=str_c("Bearer ",access_token)),
-                    query=list(login="spikevegeta")) %>%
-  use_series("content") %>%
-  rawToChar() %>%
-  fromJSON() %>%
-  as_tibble() %>%
-  use_series("data") %>%
-  use_series("id") %>%
-  unlist()
-
-userids <- tibble(id=userids,user=c("iateyourpie","spikevegeta"))
 
 db <- dbConnect(SQLite(),dbname="MOMAM.sqlite")
 
@@ -446,9 +422,6 @@ dbWriteTable(db,"games_genres",genres,overwrite=T)
 dbWriteTable(db,"games_platforms",platforms,overwrite=T)
 dbWriteTable(db,"games_ratings",ratings,overwrite=T)
 dbWriteTable(db,"games_themes",themes,overwrite=T)
-dbWriteTable(db,"channels_userids",userids,overwrite=T)
+
 
 dbDisconnect(db)
-
-#Great I have the user ids and I can look up games.
-#Now to look up what games they've played.
