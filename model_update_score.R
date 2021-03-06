@@ -85,22 +85,38 @@ update_scores <- function(df,winner,round){
     return()
 }
 
-
-pie_prob %>%
-  count(correct) %>%
-  arrange(desc(correct))
-
-visualize(pie_prob)
-
 pie_prob <- update_scores(pie_prob,"pie",1)
 pie_prob <- update_scores(pie_prob,"spike",2)
 pie_prob <- update_scores(pie_prob,"spike",3)
 pie_prob <- update_scores(pie_prob,"pie",4)
 
-pie_prob %>%
-  select(method,round_4,round_5,correct,score,road2momam6_acc) %>%
-  arrange(desc(correct),desc(score),desc(road2momam6_acc)) %>%
-  View()
+#Displays the distribtion of how many correct responses each model has.
+leaderboard_summary <- function(df=pie_prob){
+  df %>%
+    count(correct) %>%
+    arrange(desc(correct))
+}
 
+#Displays which models are currently performing the best.
+#Results are ordered by:
+#1) The number of correct responses.
+#2) Their confidence in each correct answer.
+#3) Their test set performance.
+model_leaderboard <- function(df=pie_prob){
+  df %>%
+  select(method,correct,score,road2momam6_acc) %>%
+    arrange(desc(correct),desc(score),desc(road2momam6_acc)) %>%
+    View()
+}
 
+#Accidentally save a result that didn't happen? This resets the correct and score
+#columns so they can be readded properly.
+leaderboard_reset_score <- function(df=pie_prob){
+  df %>%
+    mutate(correct = 0,
+           score = 0) %>%
+    return()
+}
+
+model_leaderboard()
 write_csv(pie_prob,"final_model_predictions_momam6.csv")
