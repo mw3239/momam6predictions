@@ -77,7 +77,7 @@ update_scores <- function(df,winner,round){
   column <- str_c("round_",round)
   
   df %>%
-    mutate(correct = case_when((winner=="pie" & df[column] > .5)~correct+1,
+    mutate(correct = case_when((winner=="pie" & df[column] >= .5)~correct+1,
                                (winner=="spike" & df[column] < .5)~correct+1,
                                T~correct),
            score = case_when(winner=="pie"~score+eval(as.name(paste(column))),
