@@ -84,16 +84,6 @@ update_scores <- function(df,winner,round){
                              winner=="spike"~score+(1-eval(as.name(paste(column)))))) %>%
     return()
 }
-#######################Results######################################
-
-pie_prob <- update_scores(pie_prob,"pie",1)
-pie_prob <- update_scores(pie_prob,"spike",2)
-pie_prob <- update_scores(pie_prob,"spike",3)
-pie_prob <- update_scores(pie_prob,"pie",4)
-pie_prob <- update_scores(pie_prob,"spike",5)
-
-
-####################################################################
 
 #Displays the distribtion of how many correct responses each model has.
 leaderboard_summary <- function(df=pie_prob){
@@ -109,7 +99,7 @@ leaderboard_summary <- function(df=pie_prob){
 #3) Their test set performance.
 model_leaderboard <- function(df=pie_prob){
   df %>%
-  #select(method,round_6,correct,score,road2momam6_acc) %>%
+  select(method,correct,score,road2momam6_acc) %>%
     arrange(desc(correct),desc(score),desc(road2momam6_acc)) %>%
     View()
 }
@@ -124,7 +114,16 @@ leaderboard_reset_score <- function(df=pie_prob){
 }
 
 
+#Add results for each event. This should be updated daily.
+pie_prob <- update_scores(pie_prob,"pie",1)
+pie_prob <- update_scores(pie_prob,"spike",2)
+pie_prob <- update_scores(pie_prob,"spike",3)
+pie_prob <- update_scores(pie_prob,"pie",4)
+pie_prob <- update_scores(pie_prob,"spike",5)
+
+
+#Summary of the current results:
 model_leaderboard()
 visualize()
-hist(pie_prob$correct,breaks = seq(min(pie_prob$correct)-1,max(pie_prob$correct)))
+#hist(pie_prob$correct,breaks = seq(min(pie_prob$correct)-1,max(pie_prob$correct)))
 write_csv(pie_prob,"final_model_predictions_momam6.csv")
