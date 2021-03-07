@@ -15,8 +15,8 @@ library(readr)
 pie_prob <- read_csv("final_model_predictions_momam6.csv")
 
 
-visualize <- function(pie_prob){
-  pie_prob %>%
+visualize <- function(df=pie_prob){
+  df %>%
     magrittr::extract(seq(2,ncol(pie_prob)-3)) %>%
     melt() %>%
     mutate(variable = as.character(variable)) %>%
@@ -40,7 +40,7 @@ visualize <- function(pie_prob){
                                 variable=="round_18"~"MP3CPU",
                                 variable=="round_19"~"SM3DWBF",
                                 variable=="round_20"~"Risk 2",
-                                variable=="round_21"~"LMGCN",
+                                variable=="round_21"~"LuigiMan",
                                 variable=="round_22"~"Elmo",
                                 variable=="round_23"~"OoTSub",
                                 variable=="round_24"~"CVNES",
@@ -56,7 +56,7 @@ visualize <- function(pie_prob){
                                   "YGO:DotR","PokeShip","PokeTCG","Rocket","M:ZM",
                                   "MM2MOMAM","SMB35","BotW","SADX","MK8Sub",
                                   "MK:DD","BeatEm","MG:TT","MP3CPU","SM3DWBF",
-                                  "Risk 2","LMGCN","Elmo","OoTSub","CVNES",
+                                  "Risk 2","LuigiMan","Elmo","OoTSub","CVNES",
                                   "WL4","MvsDK","SMRPG","SMAS","GoldPig",
                                   "Undertale","PS2RR")) %>%
     ggplot(aes(x=variable,y=value)) +
@@ -84,11 +84,16 @@ update_scores <- function(df,winner,round){
                              winner=="spike"~score+(1-eval(as.name(paste(column)))))) %>%
     return()
 }
+#######################Results######################################
 
 pie_prob <- update_scores(pie_prob,"pie",1)
 pie_prob <- update_scores(pie_prob,"spike",2)
 pie_prob <- update_scores(pie_prob,"spike",3)
 pie_prob <- update_scores(pie_prob,"pie",4)
+pie_prob <- update_scores(pie_prob,"spike",5)
+
+
+####################################################################
 
 #Displays the distribtion of how many correct responses each model has.
 leaderboard_summary <- function(df=pie_prob){
@@ -104,7 +109,7 @@ leaderboard_summary <- function(df=pie_prob){
 #3) Their test set performance.
 model_leaderboard <- function(df=pie_prob){
   df %>%
-  select(method,correct,score,road2momam6_acc) %>%
+  #select(method,round_6,correct,score,road2momam6_acc) %>%
     arrange(desc(correct),desc(score),desc(road2momam6_acc)) %>%
     View()
 }
@@ -118,5 +123,8 @@ leaderboard_reset_score <- function(df=pie_prob){
     return()
 }
 
+
 model_leaderboard()
+visualize()
+hist(pie_prob$correct,breaks = seq(min(pie_prob$correct)-1,max(pie_prob$correct)))
 write_csv(pie_prob,"final_model_predictions_momam6.csv")
