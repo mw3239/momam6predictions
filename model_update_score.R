@@ -70,7 +70,7 @@ visualize <- function(df=pie_prob){
     scale_y_continuous(expand=c(0,0)) +
     theme(plot.title = element_text(hjust = 0.5),
           legend.position = "none",
-          axis.text.x = element_text(angle=69,vjust=.5,hjust=.25))
+          axis.text.x = element_text(angle=70,vjust=.5,hjust=.25))
 }
 
 update_scores <- function(df,winner,round){
@@ -99,7 +99,7 @@ leaderboard_summary <- function(df=pie_prob){
 #3) Their test set performance.
 model_leaderboard <- function(df=pie_prob){
   df %>%
-  select(method,correct,score,road2momam6_acc) %>%
+    select(method,correct,score,road2momam6_acc) %>%
     arrange(desc(correct),desc(score),desc(road2momam6_acc)) %>%
     View()
 }
@@ -120,10 +120,13 @@ pie_prob <- update_scores(pie_prob,"spike",2)
 pie_prob <- update_scores(pie_prob,"spike",3)
 pie_prob <- update_scores(pie_prob,"pie",4)
 pie_prob <- update_scores(pie_prob,"spike",5)
-
+pie_prob <- update_scores(pie_prob,"pie",6)
+pie_prob <- update_scores(pie_prob,"spike",7)
+pie_prob <- update_scores(pie_prob,"pie",8)
+pie_prob <- update_scores(pie_prob,"pie",9)
 
 #Summary of the current results:
 model_leaderboard()
 visualize()
-#hist(pie_prob$correct,breaks = seq(min(pie_prob$correct)-1,max(pie_prob$correct)))
+hist(pie_prob$correct,breaks = seq(-1,9))
 write_csv(pie_prob,"final_model_predictions_momam6.csv")
