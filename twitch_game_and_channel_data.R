@@ -131,6 +131,7 @@ POST(str_c(api_url,end_games),
 
 #********************************************************************************
 
+#List of all the games to look up as well as the columns to grab 
 query <- dbGetQuery(db,"SELECT game_id FROM pie2015 UNION
                      SELECT game_id FROM pie2016 UNION
                      SELECT game_id FROM pie2017 UNION
@@ -147,7 +148,9 @@ query <- dbGetQuery(db,"SELECT game_id FROM pie2015 UNION
   str_remove("c") %>%
   str_c('fields id,name,game_engines,genres,player_perspectives,themes,age_ratings,franchises,involved_companies,aggregated_rating,keywords,tags; where id = ',.,'; limit 500;')
 
-
+#Grabs the above query and returns it at a tibble.
+#Note that the result has lists within the dataframe that will need to be
+#dealt with.
 game_info <- POST(str_c(api_url,end_games),
      add_headers(`Client-ID`=client_id,
                  Authorization=str_c("Bearer ",access_token)),
@@ -158,6 +161,7 @@ game_info <- POST(str_c(api_url,end_games),
   as_tibble()
 
 
+#Game engines
 game_info <- game_info %>%
   mutate(game_engines = as.character(game_engines)) %>%
   mutate(game_engines = case_when(game_engines=="NULL"~"",
