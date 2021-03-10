@@ -1,3 +1,11 @@
+#Note: 100+ models are trained in this file despite me being fully aware
+#that many of them are not appropriate for the data. I decided to train them
+#anyway for a few reasons:
+#1) It's fun to see how well the models perform even if I know I'll never trust it for predictions.
+#2) The fast majority of them take at most a few minutes to train (since there's so little data)
+#3) An algorithm that I'm unfamiliar with that ends up performing well will lead me
+#to read up and learn more about that algorithm.
+
 library(caret)
 library(readr)
 
@@ -6,18 +14,17 @@ full_data <- read_csv("momam6_trainingdata.csv")
 to_predict <- read_csv("momam6_predictions.csv")
 
 
+#Not a whole lot of data is available (only ~150 records), so a larger
+#training set with LOOCV will be used.
 set.seed(3151021)
 trainIndex <- createDataPartition(full_data$winner,p=.8,
                                   list=F,
                                   times=1)
 
 
-train <- full_data[,2:48]
-#train <- full_data[,3:49]
-#train <- full_data[trainIndex,3:49]
-#test <- full_data[-trainIndex,3:49]
+train <- full_data[trainIndex,-1]
+test <- full_data[-trainIndex,1]
 
-?trainControl
 
 fitControl <- trainControl(method = "adaptive_cv")
 adaptControl <- trainControl(method = "adaptive_cv",
@@ -28,7 +35,7 @@ adaptControl <- trainControl(method = "adaptive_cv",
                              summaryFunction = twoClassSummary,
                              search = "random")
 
-#Model 1 Stochastic Gradient Boosting - Fast
+#Model 1 Stochastic Gradient Boosting 
 set.seed(3151021)
 gbmFit <- caret::train(winner ~ ., data=train,
                 method="gbm",
@@ -38,7 +45,7 @@ gbmFit <- caret::train(winner ~ ., data=train,
 predict(gbmFit,newdata=to_predict,type="prob")
 
 
-#Model 2 adaboost - slow (done)
+#Model 2 adaboost
 set.seed(3151021)
 adaFit <- caret::train(winner ~ ., data=train,
                 method="adaboost",
@@ -81,7 +88,7 @@ bayesglmFit <- caret::train(winner ~ ., data=train,
 predict(bayesglmFit,newdata=to_predict,type="prob")
 
 
-#Model 9 Boosted Classification Trees - slow (done)
+#Model 9 Boosted Classification Trees
 set.seed(3151021)
 classtreesFit <- caret::train(winner ~ ., data=train,
                      method = 'ada',
@@ -103,7 +110,6 @@ bstlmFit <- caret::train(winner ~ ., data=train,
                      method = 'BstLm',
                      trControl=fitControl)
 
-#Note, does not produce probabilities, but result is same as glmboost.
 predict(bstlmFit,newdata=to_predict)
 
 #Model 12 Boosted Logistic Regression
