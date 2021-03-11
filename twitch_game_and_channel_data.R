@@ -7,6 +7,7 @@ library(jsonlite)
 library(RSQLite)
 library(tidyr)
 library(data.table)
+library(purrr)
 
 csvs <- c("iateyourpie - game stats on Twitch in 2015 - SullyGnome.csv",
           "iateyourpie - game stats on Twitch in 2016 - SullyGnome.csv",
@@ -132,6 +133,8 @@ POST(str_c(api_url,end_games),
 #********************************************************************************
 
 #List of all the games to look up as well as the columns to grab 
+db <- dbConnect(SQLite(),dbname="MOMAM.sqlite")
+
 query <- dbGetQuery(db,"SELECT game_id FROM pie2015 UNION
                      SELECT game_id FROM pie2016 UNION
                      SELECT game_id FROM pie2017 UNION
@@ -146,7 +149,25 @@ query <- dbGetQuery(db,"SELECT game_id FROM pie2015 UNION
                      SELECT game_id FROM spike2020") %>%
   as.character() %>%
   str_remove("c") %>%
-  str_c('fields id,name,game_engines,genres,player_perspectives,themes,age_ratings,franchises,involved_companies,aggregated_rating,keywords,tags; where id = ',.,'; limit 500;')
+  str_c('fields id,name,game_engines,genres,platforms,player_perspectives,themes,age_ratings,franchises,involved_companies,keywords; where id = ',.,'; limit 500;')
+
+#End points with necessary information from the API.
+api_url <- "https://api.igdb.com/v4"
+end_games <- "/games"
+end_categories <- "/categories"
+end_genres <- "/genres"
+end_age <- "/age_ratings"
+end_company <- "/involved_companies"
+end_engines <- "/game_engines"
+end_platforms <- "/platforms"
+end_franchises <- "/franchises"
+end_themes <- "/themes"
+end_keywords <- "/keywords"
+end_perspectives <- "/player_perspectives"
+
+
+client_id <- get_client_id()
+access_token <- get_access_token()
 
 #Grabs the above query and returns it at a tibble.
 #Note that the result has lists within the dataframe that will need to be
@@ -159,6 +180,148 @@ game_info <- POST(str_c(api_url,end_games),
   rawToChar() %>%
   fromJSON() %>%
   as_tibble()
+
+
+lookup_id_names <- function(url=api_url,endpoint,info=game_info,clientid=client_id,accesstoken=access_token,column,database,table){
+  
+  #ids of the categories that will be looked up
+  ids <- info %>%
+    pluck(column) %>%
+    unlist() %>%
+    unique() %>%
+    sort()
+  
+  #Each API query is capped at 500 results, so the queries need to be broken up into
+  #batches of 500 in the event that more results need to be searched.
+  for(i in 1:ceiling(length(ids)/500)){
+    start <- ((i-1)*500+1)
+    end <- i*500
+    
+    query <- ids[start:end] %>%
+      unique() %>% #Multiple NA values appear when end is not a multiple of 500. This reduces that to 1.
+      as_tibble() %>%
+      as.character() %>%
+      str_remove("c") %>% #String is currently of the form c(A, \nB, ..., NA)
+      str_remove_all("\\n") %>%
+      str_remove(", NA") %>%
+      str_c('fields id,slug; where id = ',.,'; limit 500;')
+    
+    tryCatch({
+      df <- POST(str_c(url,endpoint),
+                 add_headers(`Client-ID`=clientid,
+                             Authorization=str_c("Bearer ",accesstoken)),
+                 body=query) %>%
+        use_series("content") %>%
+        rawToChar() %>%
+        fromJSON() %>%
+        as_tibble() %>%
+        arrange(id)
+    },error=function(e){
+      message("Query returned no results.")
+      stop()
+    })
+    
+    #Only append for values 500+
+    if(i > 1){
+      dbWriteTable(database,table,df,append=T)
+    }
+    else{
+      dbWriteTable(database,table,df,overwrite=T)
+    }
+  }
+}
+
+lookup_id_names(endpoint=end_engines,column="game_engines",database=db,table="games_engines")
+lookup_id_names(endpoint=end_keywords,column = "keywords",database = db,table="games_keywords")
+lookup_id_names(endpoint=end_themes,column = "themes",database = db,table="games_themes")
+lookup_id_names(endpoint=end_franchises,column = "franchises",database = db,table="games_franchises")
+lookup_id_names(endpoint=end_perspectives,column = "player_perspectives",database = db,table="games_perspectives")
+lookup_id_names(endpoint=end_genres,column = "genres",database = db,table="games_genres")
+lookup_id_names(endpoint=end_platforms,column = "platforms",database = db,table="games_platforms")
+lookup_id_names(endpoint=end_age,column = "age_ratings",database = db,table="games_ratings")
+
+#Company is done separately from the automated function since it's a mutli-step
+#process. We take the involved companies, filter down to the developers, and then
+#execute another search to retrieve the relevant company names.
+involved_companies <- game_info$involved_companies %>%
+  unlist() %>%
+  unique() %>%
+  sort() %>%
+  as_tibble() %>%
+  as.character() %>%
+  str_remove("c") %>%
+  str_c('fields id,company,developer; where id = ',.,' & developer = true; limit 500;') %>%
+  POST(str_c(api_url,end_company),
+       add_headers(`Client-ID`=client_id,
+                   Authorization=str_c("Bearer ",access_token)),
+       body=.) %>%
+  use_series("content") %>%
+  rawToChar() %>%
+  fromJSON() %>%
+  as_tibble()
+
+company_names <- involved_companies %>%
+  pluck("company") %>%
+  unlist() %>%
+  sort() %>%
+  as_tibble() %>%
+  as.character() %>%
+  str_remove("c") %>%
+  str_c('fields id,slug; where id = ',.,'; limit 500;') %>%
+  POST(str_c(api_url,"/companies"),
+       add_headers(`Client-ID`=client_id,
+                   Authorization=str_c("Bearer ",access_token)),
+       body=.) %>%
+  use_series("content") %>%
+  rawToChar() %>%
+  fromJSON() %>%
+  as_tibble()
+
+
+dbWriteTable(db,"games_involved_companies",involved_companies,overwrite=T)
+dbWriteTable(db,"games_companies",company_names,overwrite=T)
+
+#And finally, age ratings. It's actually faster to just hard code these in using
+#the igdb API docs https://api-docs.igdb.com/#age-rating
+ratings <- tibble(name=c("Three","Seven","Twelve","Sixten","Eighteen",
+                         "RP","EC","E","E10","T","M","AO"),
+                  value=c(1,2,3,4,5,6,7,8,9,10,11,12))
+
+##############################################################################
+
+POST(str_c(api_url,end_games),
+     add_headers(`Client-ID`=client_id,
+                 Authorization=str_c("Bearer ",access_token)),
+     body="fields *; where id = (49, 12349, 29, 329, 15, 943, 13, 403);") %>%
+  use_series("content") %>%
+  rawToChar() %>%
+  fromJSON() %>%
+  as_tibble() %>%
+  View()
+
+
+
+engine_query <- game_info$game_engines %>%
+  unlist() %>%
+  unique() %>%
+  sort() %>%
+  as_tibble() %>%
+  as.character() %>%
+  str_remove("c") %>%
+  str_c('fields id,name; where id = ',.,'; limit 500;')
+
+
+POST(str_c(api_url,end_engines),
+     add_headers(`Client-ID`=client_id,
+                 Authorization=str_c("Bearer ",access_token)),
+     body=engine_query) %>%
+  use_series("content") %>%
+  rawToChar() %>%
+  fromJSON() %>%
+  as_tibble() %>%
+  dbWriteTable(db,"games_engines",.)
+
+
 
 
 #Game engines
@@ -207,6 +370,8 @@ game_info <- game_info %>%
   as_tibble() %>%
   setnames(.,names(.),paste0("company_",names(.))) %>%
   cbind(game_info,.)
+
+game_info %>% View()
 
 
 #Keywords
@@ -335,19 +500,7 @@ mSplit <- function(vec) {
   
   
 
-access_token <- get_access_token()
 
-api_url <- "https://api.igdb.com/v4"
-end_games <- "/games"
-end_channels <- "/channels"
-end_categories <- "/categories"
-end_genres <- "/genres"
-end_age <- "/age_ratings"
-end_company <- "/involved_companies"
-end_engines <- "/game_engines"
-end_platforms <- "/platforms"
-end_franchises <- "/franchises"
-end_themes <- "/themes"
 
 POST(str_c(api_url,end_themes),
      add_headers(`Client-ID`=client_id,
@@ -411,12 +564,6 @@ get_themes <- function(client_id,access_token){
 genres <- get_genres(client_id,access_token)
 platforms <- get_platforms(client_id,access_token)
 themes <- get_themes(client_id,access_token)
-
-#Hard coding these since it's short enough and that's how it's written on the
-#igdb API docs https://api-docs.igdb.com/#age-rating
-ratings <- tibble(name=c("Three","Seven","Twelve","Sixten","Eighteen",
-                         "RP","EC","E","E10","T","M","AO"),
-                  value=c(1,2,3,4,5,6,7,8,9,10,11,12))
 
 
 
