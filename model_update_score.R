@@ -99,7 +99,7 @@ leaderboard_summary <- function(df=pie_prob){
 #3) Their test set performance.
 model_leaderboard <- function(df=pie_prob){
   df %>%
-    select(method,correct,score,road2momam6_acc) %>%
+    select(method,round_12,correct,score,road2momam6_acc) %>%
     arrange(desc(correct),desc(score),desc(road2momam6_acc)) %>%
     View()
 }
@@ -124,9 +124,11 @@ pie_prob <- update_scores(pie_prob,"pie",6)
 pie_prob <- update_scores(pie_prob,"spike",7)
 pie_prob <- update_scores(pie_prob,"pie",8)
 pie_prob <- update_scores(pie_prob,"pie",9)
+pie_prob <- update_scores(pie_prob,"pie",10)
+pie_prob <- update_scores(pie_prob,"pie",11)
 
 #Summary of the current results:
 model_leaderboard()
 visualize()
-hist(pie_prob$correct,breaks = seq(-1,9))
+hist(pie_prob$correct,breaks = seq(-1,11))
 write_csv(pie_prob,"final_model_predictions_momam6.csv")
