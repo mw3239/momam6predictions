@@ -8,6 +8,9 @@ library(RSQLite)
 library(tidyr)
 library(data.table)
 library(purrr)
+library(stringi)
+
+db <- dbConnect(SQLite(),dbname="MOMAM.sqlite")
 
 csvs <- c("iateyourpie - game stats on Twitch in 2015 - SullyGnome.csv",
           "iateyourpie - game stats on Twitch in 2016 - SullyGnome.csv",
@@ -173,14 +176,15 @@ access_token <- get_access_token()
 #Note that the result has lists within the dataframe that will need to be
 #dealt with.
 game_info <- POST(str_c(api_url,end_games),
-     add_headers(`Client-ID`=client_id,
-                 Authorization=str_c("Bearer ",access_token)),
-     body=query) %>%
+                  add_headers(`Client-ID`=client_id,
+                              Authorization=str_c("Bearer ",access_token)),
+                  body=query) %>%
   use_series("content") %>%
   rawToChar() %>%
   fromJSON() %>%
   as_tibble()
 
+dbWriteTable(db,"games_name",select(game_info,id,name),overwrite=T)
 
 lookup_id_names <- function(url=api_url,endpoint,info=game_info,clientid=client_id,accesstoken=access_token,column,database,table){
   
@@ -283,199 +287,19 @@ dbWriteTable(db,"games_companies",company_names,overwrite=T)
 
 #And finally, age ratings. It's actually faster to just hard code these in using
 #the igdb API docs https://api-docs.igdb.com/#age-rating
-ratings <- tibble(name=c("Three","Seven","Twelve","Sixten","Eighteen",
-                         "RP","EC","E","E10","T","M","AO"),
-                  value=c(1,2,3,4,5,6,7,8,9,10,11,12))
+ratings <- tibble(id=c(1,2,3,4,5,6,7,8,9,10,11,12),
+                  slug=c("three","seven","twelve","sixten","eighteen",
+                         "rp","ec","e","e10","t","m","ao"))
+
+dbWriteTable(db,"games_ratings",ratings,overwrite=T)
 
 ##############################################################################
 
-POST(str_c(api_url,end_games),
-     add_headers(`Client-ID`=client_id,
-                 Authorization=str_c("Bearer ",access_token)),
-     body="fields *; where id = (49, 12349, 29, 329, 15, 943, 13, 403);") %>%
-  use_series("content") %>%
-  rawToChar() %>%
-  fromJSON() %>%
-  as_tibble() %>%
-  View()
-
-
-
-engine_query <- game_info$game_engines %>%
-  unlist() %>%
-  unique() %>%
-  sort() %>%
-  as_tibble() %>%
-  as.character() %>%
-  str_remove("c") %>%
-  str_c('fields id,name; where id = ',.,'; limit 500;')
-
-
-POST(str_c(api_url,end_engines),
-     add_headers(`Client-ID`=client_id,
-                 Authorization=str_c("Bearer ",access_token)),
-     body=engine_query) %>%
-  use_series("content") %>%
-  rawToChar() %>%
-  fromJSON() %>%
-  as_tibble() %>%
-  dbWriteTable(db,"games_engines",.)
-
-
-
-
-#Game engines
-game_info <- game_info %>%
-  mutate(game_engines = as.character(game_engines)) %>%
-  mutate(game_engines = case_when(game_engines=="NULL"~"",
-                                  T~game_engines)) %>%
-  select(game_engines) %>%
-  unlist() %>%
-  str_remove_all("(c\\(|\\))") %>%
-  str_replace_all(":",", ") %>%
-  str_replace_all(", ","-") %>%
-  as.factor() %>%
-  mSplit() %>%
-  as_tibble() %>%
-  setnames(.,names(.),paste0("engine_",names(.))) %>%
-  cbind(game_info,.)
-
-
-#Genres.
-game_info <- game_info %>%
-  mutate(genres = as.character(genres)) %>%
-  mutate(genres = case_when(genres=="NULL"~"",
-                            T~genres)) %>%
-  select(genres) %>%
-  unlist() %>%
-  str_remove_all("(c\\(|\\))") %>%
-  str_replace_all(":",", ") %>%
-  str_replace_all(", ","-") %>%
-  mSplit() %>%
-  as_tibble() %>%
-  setnames(.,names(.),paste0("genre_",names(.))) %>%
-  cbind(game_info,.)
-
-#Involved Companies.
-game_info <- game_info %>%
-  mutate(involved_companies = as.character(involved_companies)) %>%
-  mutate(involved_companies = case_when(involved_companies=="NULL"~"",
-                            T~involved_companies)) %>%
-  select(involved_companies) %>%
-  unlist() %>%
-  str_remove_all("(c\\(|\\))") %>%
-  str_replace_all(":",", ") %>%
-  str_replace_all(", ","-") %>%
-  mSplit() %>%
-  as_tibble() %>%
-  setnames(.,names(.),paste0("company_",names(.))) %>%
-  cbind(game_info,.)
-
-game_info %>% View()
-
-
-#Keywords
-game_info <- game_info %>%
-  mutate(keywords = as.character(keywords)) %>%
-  mutate(keywords = case_when(keywords=="NULL"~"",
-                                        T~keywords)) %>%
-  select(keywords) %>%
-  unlist() %>%
-  str_remove_all("(c\\(|\\))") %>%
-  str_replace_all(":",", ") %>%
-  str_replace_all(", ","-") %>%
-  mSplit() %>%
-  as_tibble() %>%
-  setnames(.,names(.),paste0("keyword_",names(.))) %>%
-  cbind(game_info,.)
-
-
-
-#Player Perspectives
-game_info <- game_info %>%
-  mutate(player_perspectives = as.character(player_perspectives)) %>%
-  mutate(player_perspectives = case_when(player_perspectives=="NULL"~"",
-                              T~player_perspectives)) %>%
-  select(player_perspectives) %>%
-  unlist() %>%
-  str_remove_all("(c\\(|\\))") %>%
-  str_replace_all(":",", ") %>%
-  str_replace_all(", ","-") %>%
-  mSplit() %>%
-  as_tibble() %>%
-  setnames(.,names(.),paste0("perspective_",names(.))) %>%
-  cbind(game_info,.)
-
-
-
-#Tags
-game_info <- game_info %>%
-  mutate(tags = as.character(tags)) %>%
-  mutate(tags = case_when(tags=="NULL"~"",
-                                         T~tags)) %>%
-  select(tags) %>%
-  unlist() %>%
-  str_remove_all("(c\\(|\\))") %>%
-  str_replace_all(":",", ") %>%
-  str_replace_all(", ","-") %>%
-  mSplit() %>%
-  as_tibble() %>%
-  setnames(.,names(.),paste0("tag_",names(.))) %>%
-  cbind(game_info,.)
-
-
-#Themes
-game_info <- game_info %>%
-  mutate(themes = as.character(themes)) %>%
-  mutate(themes = case_when(themes=="NULL"~"",
-                          T~themes)) %>%
-  select(themes) %>%
-  unlist() %>%
-  str_remove_all("(c\\(|\\))") %>%
-  str_replace_all(":",", ") %>%
-  str_replace_all(", ","-") %>%
-  mSplit() %>%
-  as_tibble() %>%
-  setnames(.,names(.),paste0("theme_",names(.))) %>%
-  cbind(game_info,.)
-
-
-#Age Ratings
-game_info <- game_info %>%
-  mutate(age_ratings = as.character(age_ratings)) %>%
-  mutate(age_ratings = case_when(age_ratings=="NULL"~"",
-                            T~age_ratings)) %>%
-  select(age_ratings) %>%
-  unlist() %>%
-  str_remove_all("(c\\(|\\))") %>%
-  str_replace_all(":",", ") %>%
-  str_replace_all(", ","-") %>%
-  mSplit() %>%
-  as_tibble() %>%
-  setnames(.,names(.),paste0("rating_",names(.))) %>%
-  cbind(game_info,.)
-
-#Franchises
-game_info <- game_info %>%
-  mutate(franchises = as.character(franchises)) %>%
-  mutate(franchises = case_when(franchises=="NULL"~"",
-                                 T~franchises)) %>%
-  select(franchises) %>%
-  unlist() %>%
-  str_remove_all("(c\\(|\\))") %>%
-  str_replace_all(":",", ") %>%
-  str_replace_all(", ","-") %>%
-  mSplit() %>%
-  as_tibble() %>%
-  setnames(.,names(.),paste0("franchise_",names(.))) %>%
-  cbind(game_info,.)
-
-
-game_info <- game_info[,!(colnames(game_info) %in% c("game_engines","genres","involved_companies","keywords","player_perspectives","tags","themes","age_ratings","franchises"))]
-
-dbWriteTable(db,"games_info",game_info,overwrite=T)
-
-
+#Helper function that will be used when converting categorical columns to
+#dummy variables.
+#This is used since some columns are actually a list of multiple categorical
+#values. Traditional dummy variable encoding function, unfortunately, expect
+#each column to contain a single category and nothing else.
 mSplit <- function(vec) {
   if (!is.character(vec))
     vec <- as.character(vec)
@@ -489,90 +313,147 @@ mSplit <- function(vec) {
   M
 }
 
-
-
-
-
-
-
-
-
+#Takes in a data frame with an id column and a column with a list of ids.
+#column_prefix will be used for the new column names.
+#table_with_info is the db table that contains id and slug info for every
+#id in the column of interest.
+categorical_to_dummy <- function(df,id_column,data_column,column_prefix,db,table_to_write,table_with_info){
+  table <- dbGetQuery(db,str_c("SELECT * FROM ",table_with_info)) %>%
+    as_tibble() %>%
+    mutate(id = as.character(id))
   
+  id_string <- table$id
+  slug_string <- table$slug
   
+  dummy_df <- df %>%
+    mutate(new_column = as.character(eval(as.name(paste(data_column)))),
+           new_column = case_when(new_column=="NULL"~"",
+                                  T~new_column)) %>%  
+    select(new_column) %>%
+    unlist() %>%
+    stri_replace_all_regex("\\b" %s+% id_string %s+% "\\b",slug_string,vectorize_all=F) %>%
+    str_replace_all("-","_") %>%
+    str_remove_all("(c\\(|\\))") %>%
+    str_replace_all(":",", ") %>%
+    str_replace_all(", ","-") %>%
+    as.factor() %>%
+    mSplit() %>%
+    as_tibble() %>%
+    setnames(.,names(.),paste0(column_prefix,names(.)))
+  
+  df_to_write <- df %>%
+    pluck(id_column) %>%
+    cbind(dummy_df) %>%
+    setnames(.,names(.)[1],"id") #First column would be named "." otherwise.
+  
+  #The max number of columns for a sqlite table is (by default) 999.
+  #This stores the tables in batches if there are more than 999 categories.
+  if(ncol(df_to_write)>999){
+    for(i in 1:ceiling(ncol(df_to_write)/999)){
+      to_append <- str_c("_",as.character(i))
+      
+      #The first column will be the id column
+      if(i == 1){
+        start <- 2
+        end <- 999
+      }
+      #The final subset may have less than 999 columns.
+      else if(i == ceiling(ncol(df_to_write)/999)){
+        message("Attempting to write a table with more than 999 columns. The values will be split across multiple tables.")
+        start <- start + 998
+        end <- ncol(df_to_write)
+      }
+      else{
+        start <- start + 998
+        end <- end + 998
+      }
+      
+      #Always keep id column
+      df_subset <- df_to_write[,c(1,start:end)]
+      
+      dbWriteTable(db,str_c(table_to_write,to_append),df_subset,overwrite=T)
+      
+    }
+  }
+  else{
+    dbWriteTable(db,table_to_write,df_to_write,overwrite=T)  
+  }
+  
+}
 
+#Could mapply this, but I think this actually ends up being easier to read.
+categorical_to_dummy(game_info,"id","game_engines","engine_",db,"data_engines","games_engines")
+categorical_to_dummy(game_info,"id","genres","genre_",db,"data_genres","games_genres")
+categorical_to_dummy(game_info,"id","keywords","keyword_",db,"data_keywords","games_keywords")
+categorical_to_dummy(game_info,"id","platforms","platform_",db,"data_platforms","games_platforms")
+categorical_to_dummy(game_info,"id","player_perspectives","perspective_",db,"data_perspectives","games_perspectives")
+categorical_to_dummy(game_info,"id","themes","theme_",db,"data_themes","games_themes")
+categorical_to_dummy(game_info,"id","age_ratings","rating_",db,"data_ratings","games_ratings")
+categorical_to_dummy(game_info,"id","franchises","franchise_",db,"data_franchises","games_franchises")
 
+#Companies once again require special treatment.
+company_table <- dbGetQuery(db,"SELECT i.id, c.slug
+           FROM games_involved_companies as i
+           LEFT JOIN games_companies as c
+           ON i.company = c.id") %>%
+  as_tibble()
 
-POST(str_c(api_url,end_themes),
-     add_headers(`Client-ID`=client_id,
-                 Authorization=str_c("Bearer ",access_token)),
-     body="fields id,name; limit 500;") %>%
-  use_series("content") %>%
-  rawToChar() %>%
-  fromJSON() %>%
+id_string <- company_table$id
+slug_string <- company_table$slug
+
+#Involved companies includes not just developers, but publishers and distributors as well.
+#However, the developer has a much larger impact on who will win a particular game
+#than the publisher does, meaning any publishers can be ignored.
+#The normal stringi_replace_all function won't successfully replace all company ids
+#Because some of those ids are for publishing companies.
+game_info %>%
+  mutate(new_column = as.character(involved_companies),
+         new_column = case_when(new_column=="NULL"~"",
+                                T~new_column)) %>%  
+  select(new_column) %>%
+  unlist() %>%
+  stri_replace_all_regex("\\b" %s+% id_string %s+% "\\b",slug_string,vectorize_all=F) %>%
+  str_replace_all("-","_") %>% #We're going to be removing all -'s later.
+  str_remove_all("(c\\(|\\))") %>%
+  str_replace_all(":",", ") %>%
+  str_replace_all(", ","-") %>%
+  str_remove_all("[0-9]{2,}") %>% #Remove ids for companies that are not developers 
+  str_replace_all("-{2,}","-") %>% #Clean up the debris left behind by removing the publisher ids.
+  str_remove_all("^-|-$") %>% #Remove -s at the beginning and end of string.
+  as.factor() %>%
+  mSplit() %>%
   as_tibble() %>%
-  View()
+  setnames(.,names(.),paste0("company_",names(.))) %>%
+  cbind(game_info$id,.) %>%
+  #This *could* be done in the previous setnames call, but it'd be ugly.
+  setnames(.,names(.)[1],"id") %>% 
+  dbWriteTable(db,"data_companies",.,overwrite=T)
 
 
-
-POST(str_c(api_url,end_games),
-     add_headers(`Client-ID`=client_id,
-                 Authorization=str_c("Bearer ",access_token)),
-     body='fields name,id; search "The Legend of Zelda: Ocarina of Time / Master Quest";') %>%
-  use_series("content") %>%
-  rawToChar() %>%
-  fromJSON() %>%
-  as_tibble() %>%
-  View()
-
-
-get_genres <- function(client_id,access_token){
-  POST(str_c(api_url,end_genres),
-       add_headers(`Client-ID`=client_id,
-                   Authorization=str_c("Bearer ",access_token)),
-       body="fields id,name; limit 100;") %>%
-    use_series("content") %>%
-    rawToChar() %>%
-    fromJSON() %>%
-    as_tibble() %>%
-    arrange(id) %>%
-    return()
+#Determines how much time (in minutes) each streamer played a certain piece of metadata
+#(genre, console, etc) for a give year. For example, calculate how much time
+#pie spent playing adventure games in 2015.
+get_annual_playtime <- function(database=db,db_table_year,data_table,columns){
+  dbGetQuery(database,str_c("SELECT p.game,p.minutes, d.*
+               FROM ",db_table_year," AS p
+               LEFT JOIN ",data_table," AS d ON p.game_id = d.id")) %>%
+    mutate_at(vars(starts_with(columns)),funs(.*minutes)) %>%
+    summarise_at(vars(starts_with(columns)),sum) %>%
+    dbWriteTable(db,str_c(db_table_year,str_extract(data_table,"_[:alnum:]+")),.,overwrite=T) 
 }
-get_platforms <- function(client_id,access_token){
-  POST(str_c(api_url,end_platforms),
-       add_headers(`Client-ID`=client_id,
-                   Authorization=str_c("Bearer ",access_token)),
-       body="fields id,name; limit 200;") %>%
-    use_series("content") %>%
-    rawToChar() %>%
-    fromJSON() %>%
-    as_tibble() %>%
-    arrange(id) %>%
-    return()  
-}
-get_themes <- function(client_id,access_token){
-  POST(str_c(api_url,end_themes),
-       add_headers(`Client-ID`=client_id,
-                   Authorization=str_c("Bearer ",access_token)),
-       body="fields id,name; limit 100;") %>%
-    use_series("content") %>%
-    rawToChar() %>%
-    fromJSON() %>%
-    as_tibble() %>%
-    arrange(id) %>%
-    return()
-}
-genres <- get_genres(client_id,access_token)
-platforms <- get_platforms(client_id,access_token)
-themes <- get_themes(client_id,access_token)
+
+#Faster and neater to mapply this than to write out the get_annual_playtime function 72 times.
+mapply(get_annual_playtime,
+       db_table_year=c(rep("pie2015",6),rep("pie2016",6),rep("pie2017",6),
+                       rep("pie2018",6),rep("pie2019",6),rep("pie2020",6),
+                       rep("spike2015",6),rep("spike2016",6),rep("spike2017",6),
+                       rep("spike2018",6),rep("spike2019",6),rep("spike2020",6)),
+       data_table=rep(c("data_themes","data_franchises","data_companies",
+                        "data_genres","data_perspectives","data_platforms"),12),
+       columns=rep(c("theme","franchise","compan","genre","perspective","platform"),12))
 
 
 
-db <- dbConnect(SQLite(),dbname="MOMAM.sqlite")
-
-dbWriteTable(db,"games_genres",genres,overwrite=T)
-dbWriteTable(db,"games_platforms",platforms,overwrite=T)
-dbWriteTable(db,"games_ratings",ratings,overwrite=T)
-dbWriteTable(db,"games_themes",themes,overwrite=T)
-
+#Next step: Get cumulative play time for each category (should be fast.)
 
 dbDisconnect(db)
