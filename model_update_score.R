@@ -85,7 +85,7 @@ update_scores <- function(df,winner,round){
     return()
 }
 
-#Displays the distribtion of how many correct responses each model has.
+#Displays the distribution of how many correct responses each model has.
 leaderboard_summary <- function(df=pie_prob){
   df %>%
     count(correct) %>%
@@ -99,7 +99,7 @@ leaderboard_summary <- function(df=pie_prob){
 #3) Their test set performance.
 model_leaderboard <- function(df=pie_prob){
   df %>%
-    select(method,round_12,correct,score,road2momam6_acc) %>%
+    select(method,round_13,correct,score,road2momam6_acc) %>%
     arrange(desc(correct),desc(score),desc(road2momam6_acc)) %>%
     View()
 }
@@ -126,9 +126,10 @@ pie_prob <- update_scores(pie_prob,"pie",8)
 pie_prob <- update_scores(pie_prob,"pie",9)
 pie_prob <- update_scores(pie_prob,"pie",10)
 pie_prob <- update_scores(pie_prob,"pie",11)
+pie_prob <- update_scores(pie_prob,"spike",12)
 
 #Summary of the current results:
 model_leaderboard()
 visualize()
-hist(pie_prob$correct,breaks = seq(-1,11))
+hist(pie_prob$correct,breaks = seq(-1,12))
 write_csv(pie_prob,"final_model_predictions_momam6.csv")
