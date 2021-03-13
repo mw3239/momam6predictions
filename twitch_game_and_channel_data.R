@@ -29,6 +29,23 @@ tablenames <- c("pie2015","pie2016","pie2017","pie2018","pie2019","pie2020",
                 "spike2015","spike2016","spike2017",
                 "spike2018","spike2019","spike2020")
 
+#End points with necessary information from the API.
+api_url <- "https://api.igdb.com/v4"
+end_games <- "/games"
+end_categories <- "/categories"
+end_genres <- "/genres"
+end_age <- "/age_ratings"
+end_company <- "/involved_companies"
+end_engines <- "/game_engines"
+end_platforms <- "/platforms"
+end_franchises <- "/franchises"
+end_themes <- "/themes"
+end_keywords <- "/keywords"
+end_perspectives <- "/player_perspectives"
+
+client_id <- get_client_id()
+access_token <- get_access_token()
+
 #dbname should be a database.
 #tablename is a string
 #filename is a string leading to a csv file from sullygnome.
@@ -154,25 +171,7 @@ query <- dbGetQuery(db,"SELECT game_id FROM pie2015 UNION
   str_remove("c") %>%
   str_c('fields id,name,game_engines,genres,platforms,player_perspectives,themes,age_ratings,franchises,involved_companies,keywords; where id = ',.,'; limit 500;')
 
-#End points with necessary information from the API.
-api_url <- "https://api.igdb.com/v4"
-end_games <- "/games"
-end_categories <- "/categories"
-end_genres <- "/genres"
-end_age <- "/age_ratings"
-end_company <- "/involved_companies"
-end_engines <- "/game_engines"
-end_platforms <- "/platforms"
-end_franchises <- "/franchises"
-end_themes <- "/themes"
-end_keywords <- "/keywords"
-end_perspectives <- "/player_perspectives"
-
-
-client_id <- get_client_id()
-access_token <- get_access_token()
-
-#Grabs the above query and returns it at a tibble.
+#Grabs the above query and returns it as a tibble.
 #Note that the result has lists within the dataframe that will need to be
 #dealt with.
 game_info <- POST(str_c(api_url,end_games),
