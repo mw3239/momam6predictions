@@ -452,7 +452,23 @@ mapply(get_annual_playtime,
        columns=rep(c("theme","franchise","compan","genre","perspective","platform"),12))
 
 
+#Uses the yearly playtime to calculate cumulative playtime.
+get_cumulative_playtime <- function(database=db,streamer,columns,table_ends_with){
+  dbGetQuery(database,str_c("SELECT * FROM ",streamer,"2015_",table_ends_with," UNION
+               SELECT * FROM ",streamer,"2016_",table_ends_with," UNION
+               SELECT * FROM ",streamer,"2017_",table_ends_with," UNION
+               SELECT * FROM ",streamer,"2018_",table_ends_with," UNION
+               SELECT * FROM ",streamer,"2019_",table_ends_with," UNION
+               SELECT * FROM ",streamer,"2020_",table_ends_with,"")) %>%
+    tibble(year=c(2015,2016,2017,2018,2019,2020),.) %>%
+    mutate_at(vars(starts_with(columns)), cumsum) %>%
+    dbWriteTable(database,str_c(streamer,"_cumulative_",table_ends_with),.,overwrite=T)
+}
 
-#Next step: Get cumulative play time for each category (should be fast.)
+
+mapply(get_cumulative_playtime,
+       streamer=c(rep("pie",6),rep("spike",6)),
+       columns = rep(c("theme","franchise","compan","genre","perspective","platform"),2),
+       table_ends_with=rep(c("themes","franchises","companies","genres","perspectives","platforms"),2))
 
 dbDisconnect(db)
