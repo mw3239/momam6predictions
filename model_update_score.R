@@ -99,7 +99,7 @@ leaderboard_summary <- function(df=pie_prob){
 #3) Their test set performance.
 model_leaderboard <- function(df=pie_prob){
   df %>%
-    select(method,round_13,correct,score,road2momam6_acc) %>%
+    select(method,round_28,round_29,correct,score,road2momam6_acc) %>%
     arrange(desc(correct),desc(score),desc(road2momam6_acc)) %>%
     View()
 }
@@ -127,9 +127,25 @@ pie_prob <- update_scores(pie_prob,"pie",9)
 pie_prob <- update_scores(pie_prob,"pie",10)
 pie_prob <- update_scores(pie_prob,"pie",11)
 pie_prob <- update_scores(pie_prob,"spike",12)
+pie_prob <- update_scores(pie_prob,"spike",13)
+pie_prob <- update_scores(pie_prob,"pie",14)
+pie_prob <- update_scores(pie_prob,"pie",15)
+pie_prob <- update_scores(pie_prob,"spike",16)
+pie_prob <- update_scores(pie_prob,"pie",17)
+pie_prob <- update_scores(pie_prob,"spike",18)
+pie_prob <- update_scores(pie_prob,"pie",19)
+pie_prob <- update_scores(pie_prob,"pie",20)
+pie_prob <- update_scores(pie_prob,"spike",21)
+pie_prob <- update_scores(pie_prob,"spike",22)
+pie_prob <- update_scores(pie_prob,"pie",23)
+pie_prob <- update_scores(pie_prob,"pie",24)
+pie_prob <- update_scores(pie_prob,"pie",25)
+pie_prob <- update_scores(pie_prob,"spike",26)
+pie_prob <- update_scores(pie_prob,"pie",27)
+pie_prob <- update_scores(pie_prob,"pie",28)
 
 #Summary of the current results:
 model_leaderboard()
 visualize()
-hist(pie_prob$correct,breaks = seq(-1,12))
+hist(pie_prob$correct,breaks = seq(-1,28))
 write_csv(pie_prob,"final_model_predictions_momam6.csv")
